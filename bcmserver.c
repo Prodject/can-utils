@@ -1,7 +1,8 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause) */
 /*
  * tst-bcm-server.c
  *
- * Test programm that implements a socket server which understands ASCII
+ * Test program that implements a socket server which understands ASCII
  * messages for simple broadcast manager frame send commands.
  *
  * < interface command ival_s ival_us can_id can_dlc [data]* >

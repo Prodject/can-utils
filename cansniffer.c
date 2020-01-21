@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause) */
 /*
  * cansniffer.c
  *
@@ -61,6 +62,7 @@
 
 #include <linux/can.h>
 #include <linux/can/bcm.h>
+#include <linux/sockios.h>
 
 #include "terminal.h"
 
@@ -690,12 +692,15 @@ void writesettings(char* name){
 
 		for (i=0; i < 2048 ;i++) {
 			sprintf(buf, "<%03X>%c.", i, (is_set(i, ENABLE))?'1':'0');
-			write(fd, buf, 7);
+			if (write(fd, buf, 7) < 0)
+				perror("write");
 			for (j=0; j<8 ; j++){
 				sprintf(buf, "%02X", sniftab[i].notch.data[j]);
-				write(fd, buf, 2);
+				if (write(fd, buf, 2) < 0)
+					perror("write");
 			}
-			write(fd, "\n", 1);
+			if (write(fd, "\n", 1) < 0)
+				perror("write");
 			/* 7 + 16 + 1 = 24 bytes per entry */ 
 		}
 		close(fd);

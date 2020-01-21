@@ -18,10 +18,11 @@ subsystem (aka SocketCAN):
 #### CAN access via IP sockets
 * canlogserver : log CAN frames from a remote/local host
 * bcmserver : interactive BCM configuration (remote/local)
-* [socketcand](https://github.com/dschanoeh/socketcand) : use RAW/BCM/ISO-TP sockets via TCP/IP sockets
+* [socketcand](https://github.com/linux-can/socketcand) : use RAW/BCM/ISO-TP sockets via TCP/IP sockets
+* [cannelloni](https://github.com/mguentner/cannelloni) : UDP/SCTP based SocketCAN tunnel
 
 #### CAN in-kernel gateway configuration
-* cangw : CAN gateway userpace tool for netlink configuration
+* cangw : CAN gateway userspace tool for netlink configuration
 
 #### CAN bus measurement and testing
 * canbusload : calculate and display the CAN busload
@@ -46,6 +47,17 @@ subsystem (aka SocketCAN):
 * slcan_attach : userspace tool for serial line CAN interface configuration
 * slcand : daemon for serial line CAN interface configuration
 * slcanpty : creates a pty for applications using the slcan ASCII protocol
+
+#### CMake Project Generator
+* Place your build folder anywhere, passing CMake the path.  Relative or absolute.
+* Some examples using a build folder under the source tree root:
+* Android : ``cmake -DCMAKE_TOOLCHAIN_FILE=~/Android/Sdk/ndk-bundle/build/cmake/android.toolchain.cmake -DANDROID_PLATFORM=android-21 -DANDROID_ABI=armeabi-v7a .. && make``
+* Android Studio : Copy repo under your project's ``app`` folder, add ``add_subdirectory(can-utils)`` to your ``CMakeLists.txt`` file after ``cmake_minimum_required()``.  Generating project will build Debug/Release for all supported EABI types.  ie. arm64-v8a, armeabi-v7a, x86, x86_64.
+* Raspberry Pi : ``cmake -DCMAKE_TOOLCHAIN_FILE=~/rpi/tools/build/cmake/rpi.toolchain.cmake .. && make``
+* Linux : ``cmake -GNinja .. && ninja``
+* Linux Eclipse Photon (Debug) : ``CC=clang cmake -G"Eclipse CDT4 - Unix Makefiles" ../can-utils/ -DCMAKE_BUILD_TYPE=Debug -DCMAKE_ECLIPSE_VERSION=4.8.0``
+* To override the base installation directory use: ``CMAKE_INSTALL_PREFIX``
+  ie. ``CC=clang cmake -DCMAKE_INSTALL_PREFIX=./out .. && make install``
 
 ### Additional Information:
 

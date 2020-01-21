@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause) */
 /*
  * isotpperf.c - ISO15765-2 protocol performance visualisation
  *
@@ -56,6 +57,7 @@
 
 #include <linux/can.h>
 #include <linux/can/raw.h>
+#include <linux/sockios.h>
 
 #define NO_CAN_ID 0xFFFFFFFFU
 #define PERCENTRES 2 /* resolution in percent for bargraph */

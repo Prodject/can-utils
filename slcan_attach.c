@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause) */
 /*
  * slcan_attach.c - userspace tool for serial line CAN interface driver SLCAN
  *
@@ -87,7 +88,8 @@ int main(int argc, char **argv)
 	int send_read_status_flags = 0;
 	char *speed = NULL;
 	char *btr = NULL;
-	char buf[IFNAMSIZ+1];
+	char buf[20];
+	static struct ifreq ifr;
 	char *tty;
 	char *name = NULL;
 	int opt;
@@ -132,7 +134,7 @@ int main(int argc, char **argv)
 
 		case 'n':
 			name = optarg;
-			if (strlen(name) > IFNAMSIZ-1)
+			if (strlen(name) > sizeof(ifr.ifr_newname) - 1)
 				print_usage(argv[0]);
 			break;
 
@@ -157,25 +159,40 @@ int main(int argc, char **argv)
 
 		if (speed) {
 			sprintf(buf, "C\rS%s\r", speed);
-			write(fd, buf, strlen(buf));
+			if (write(fd, buf, strlen(buf)) <= 0) {
+				perror("write");
+				exit(EXIT_FAILURE);
+			}
 		}
 
 		if (btr) {
 			sprintf(buf, "C\rs%s\r", btr);
-			write(fd, buf, strlen(buf));
+			if (write(fd, buf, strlen(buf)) <= 0) {
+				perror("write");
+				exit(EXIT_FAILURE);
+			}
 		}
 
 		if (send_read_status_flags) {
 			sprintf(buf, "F\r");
-			write(fd, buf, strlen(buf));
+			if (write(fd, buf, strlen(buf)) <= 0) {
+				perror("write");
+				exit(EXIT_FAILURE);
+			}
 		}
 
 		if (send_listen) {
 			sprintf(buf, "L\r");
-			write(fd, buf, strlen(buf));
+			if (write(fd, buf, strlen(buf)) <= 0) {
+				perror("write");
+				exit(EXIT_FAILURE);
+			}
 		} else if (send_open) {
 			sprintf(buf, "O\r");
-			write(fd, buf, strlen(buf));
+			if (write(fd, buf, strlen(buf)) <= 0) {
+				perror("write");
+				exit(EXIT_FAILURE);
+			}
 		}
 
 		/* set slcan line discipline on given tty */
@@ -185,16 +202,15 @@ int main(int argc, char **argv)
 		}
 
 		/* retrieve the name of the created CAN netdevice */
-		if (ioctl (fd, SIOCGIFNAME, buf) < 0) {
+		if (ioctl (fd, SIOCGIFNAME, ifr.ifr_name) < 0) {
 			perror("ioctl SIOCGIFNAME");
 			exit(1);
 		}
 
-		printf("attached tty %s to netdevice %s\n", tty, buf);
+		printf("attached tty %s to netdevice %s\n", tty, ifr.ifr_name);
 
 		/* try to rename the created device if requested */
 		if (name) {
-			struct ifreq ifr;
 			int s = socket(PF_INET, SOCK_DGRAM, 0);
  
 			printf("rename netdevice %s to %s ... ", buf, name);
@@ -202,8 +218,9 @@ int main(int argc, char **argv)
 			if (s < 0)
 				perror("socket for interface rename");
 			else {
-				strncpy (ifr.ifr_name, buf, IFNAMSIZ);
-				strncpy (ifr.ifr_newname, name, IFNAMSIZ);
+				/* current slcan%d name is still in ifr.ifr_name */
+				memset (ifr.ifr_newname, 0, sizeof(ifr.ifr_newname));
+				strncpy (ifr.ifr_newname, name, sizeof(ifr.ifr_newname) - 1);
  
 				if (ioctl(s, SIOCSIFNAME, &ifr) < 0)
 					printf("failed!\n");
@@ -229,7 +246,10 @@ int main(int argc, char **argv)
 
 		if (send_close) {
 			sprintf(buf, "C\r");
-			write(fd, buf, strlen(buf));
+			if (write(fd, buf, strlen(buf)) <= 0) {
+				perror("write");
+				exit(EXIT_FAILURE);
+			}
 		}
 	}
 

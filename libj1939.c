@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2011 EIA Electronics
  *
@@ -12,10 +13,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
+#include <err.h>
 #include <inttypes.h>
 
-#include <error.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <net/if.h>
@@ -41,7 +41,7 @@ static inline void fetch_names(void)
 	if (!saved) {
 		saved = if_nameindex();
 		if (!saved)
-			error(1, errno, "if_nameindex()");
+			err(1, "if_nameindex()");
 	}
 }
 
@@ -90,6 +90,27 @@ static int libj1939_ifindex(const char *str)
 		return libj1939_ifindex(str);
 	} else
 		return 0;
+}
+
+void libj1939_parse_canaddr(char *spec, struct sockaddr_can *paddr)
+{
+	char *str;
+
+	str = strsep(&spec, ":");
+	if (strlen(str))
+		paddr->can_ifindex = if_nametoindex(str);
+
+	str = strsep(&spec, ",");
+	if (str && strlen(str))
+		paddr->can_addr.j1939.addr = strtoul(str, NULL, 0);
+
+	str = strsep(&spec, ",");
+	if (str && strlen(str))
+		paddr->can_addr.j1939.pgn = strtoul(str, NULL, 0);
+
+	str = strsep(&spec, ",");
+	if (str && strlen(str))
+		paddr->can_addr.j1939.name = strtoull(str, NULL, 0);
 }
 
 int libj1939_str2addr(const char *str, char **endp, struct sockaddr_can *can)
@@ -162,13 +183,13 @@ const char *libj1939_addr2str(const struct sockaddr_can *can)
 	}
 	if (can->can_addr.j1939.name) {
 		str += sprintf(str, "%016llx", (unsigned long long)can->can_addr.j1939.name);
-		if (can->can_addr.j1939.pgn == 0x0ee00)
+		if (can->can_addr.j1939.pgn == J1939_PGN_ADDRESS_CLAIMED)
 			str += sprintf(str, ".%02x", can->can_addr.j1939.addr);
 	} else if (can->can_addr.j1939.addr <= 0xfe)
 		str += sprintf(str, "%02x", can->can_addr.j1939.addr);
 	else
 		str += sprintf(str, "-");
-	if (can->can_addr.j1939.pgn <= 0x3ffff)
+	if (can->can_addr.j1939.pgn <= J1939_PGN_MAX)
 		str += sprintf(str, ",%05x", can->can_addr.j1939.pgn);
 
 	return buf;

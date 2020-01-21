@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause) */
 /*
  * lib.h - library include for command line tools
  *
@@ -96,7 +97,7 @@ int hexstring2data(char *arg, unsigned char *data, int maxdlen);
 
 int parse_canframe(char *cs, struct canfd_frame *cf);
 /*
- * Transfers a valid ASCII string decribing a CAN frame into struct canfd_frame.
+ * Transfers a valid ASCII string describing a CAN frame into struct canfd_frame.
  *
  * CAN 2.0 frames
  * - string layout <can_id>#{R{len}|data}

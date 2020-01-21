@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause) */
 /*
  * cansend.c - simple command line tool to send CAN-frames via CAN_RAW sockets
  *
@@ -75,16 +76,19 @@ int main(int argc, char **argv)
 	required_mtu = parse_canframe(argv[2], &frame);
 	if (!required_mtu){
 		fprintf(stderr, "\nWrong CAN-frame format! Try:\n\n");
-		fprintf(stderr, "    <can_id>#{R|data}          for CAN 2.0 frames\n");
+		fprintf(stderr, "    <can_id>#{data}            for 'classic' CAN 2.0 data frames\n");
+		fprintf(stderr, "    <can_id>#R{len}            for 'classic' CAN 2.0 RTR frames\n");
 		fprintf(stderr, "    <can_id>##<flags>{data}    for CAN FD frames\n\n");
 		fprintf(stderr, "<can_id> can have 3 (SFF) or 8 (EFF) hex chars\n");
 		fprintf(stderr, "{data} has 0..8 (0..64 CAN FD) ASCII hex-values (optionally");
 		fprintf(stderr, " separated by '.')\n");
+		fprintf(stderr, "{len} is an optional 0..8 value as RTR frames can contain a");
+		fprintf(stderr, " valid dlc field\n");
 		fprintf(stderr, "<flags> a single ASCII Hex value (0 .. F) which defines");
 		fprintf(stderr, " canfd_frame.flags\n\n");
 		fprintf(stderr, "e.g. 5A1#11.2233.44556677.88 / 123#DEADBEEF / 5AA# / ");
-		fprintf(stderr, "123##1 / 213##311\n     1F334455#1122334455667788 / 123#R ");
-		fprintf(stderr, "for remote transmission request.\n\n");
+		fprintf(stderr, "123##1 / 213##311223344\n     1F334455#1122334455667788 / ");
+		fprintf(stderr, "123#R / 00000123#R3\n\n");
 		return 1;
 	}
 
@@ -102,6 +106,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	memset(&addr, 0, sizeof(addr));
 	addr.can_family = AF_CAN;
 	addr.can_ifindex = ifr.ifr_ifindex;
 

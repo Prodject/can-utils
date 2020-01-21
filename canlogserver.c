@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause) */
 /*
  * canlogserver.c
  *
@@ -61,6 +62,7 @@
 
 #include <linux/can.h>
 #include <linux/can/raw.h>
+#include <linux/sockios.h>
 #include <signal.h>
 #include <errno.h>
 

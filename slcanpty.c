@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * slcanpty.c -  creates a pty for applications using the slcan ASCII protocol
  * and converts the ASCII data to a CAN network interface (and vice versa)
@@ -5,9 +6,8 @@
  * Copyright (c)2009 Oliver Hartkopp
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the version 2 of the GNU General Public License
+ * as published by the Free Software Foundation
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -37,6 +37,7 @@
 
 #include <linux/can.h>
 #include <linux/can/raw.h>
+#include <linux/sockios.h>
 
 /* maximum rx buffer len: extended CAN frame with timestamp */
 #define SLC_MTU (sizeof("T1111222281122334455667788EA5F\r")+1)
@@ -74,7 +75,7 @@ int pty2can(int pty, int socket, struct can_filter *fi,
 
 	nbytes = read(pty, &buf[rxoffset], sizeof(buf)-rxoffset-1);
 	if (nbytes <= 0) {
-		/* nbytes == 0 : no error but pty decriptor has been closed */
+		/* nbytes == 0 : no error but pty descriptor has been closed */
 		if (nbytes < 0)
 			perror("read pty");
 

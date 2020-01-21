@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * slcand.c - userspace daemon for serial line CAN interface driver SLCAN
  *
@@ -5,9 +6,8 @@
  * Copyright (c) 2009 Verari Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the version 2 of the GNU General Public License
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -180,7 +180,8 @@ int main(int argc, char *argv[])
 	char *tty = NULL;
 	char const *devprefix = "/dev/";
 	char *name = NULL;
-	char buf[IFNAMSIZ+1];
+	char buf[20];
+	static struct ifreq ifr;
 	struct termios tios;
 	speed_t old_ispeed;
 	speed_t old_ospeed;
@@ -270,6 +271,8 @@ int main(int argc, char *argv[])
 		print_usage(argv[0]);
 
 	name = argv[optind + 1];
+	if (name && (strlen(name) > sizeof(ifr.ifr_newname) - 1))
+		print_usage(argv[0]);
 
 	/* Prepare the tty device name string */
 	pch = strstr(tty, devprefix);
@@ -280,23 +283,6 @@ int main(int argc, char *argv[])
 
 	syslogger(LOG_INFO, "starting on TTY device %s", ttypath);
 
-	/* Daemonize */
-	if (run_as_daemon) {
-		if (daemon(0, 0)) {
-			syslogger(LOG_ERR, "failed to daemonize");
-			exit(EXIT_FAILURE);
-		}
-	}
-	else {
-		/* Trap signals that we expect to receive */
-		signal(SIGINT, child_handler);
-		signal(SIGTERM, child_handler);
-	}
-
-	/* */
-	slcand_running = 1;
-
-	/* Now we are a daemon -- do the work for which we were paid */
 	fd = open(ttypath, O_RDWR | O_NONBLOCK | O_NOCTTY);
 	if (fd < 0) {
 		syslogger(LOG_NOTICE, "failed to open TTY device %s\n", ttypath);
@@ -305,7 +291,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Configure baud rate */
-	memset(&tios, 0, sizeof(struct termios));
+	memset(&tios, 0, sizeof(tios));
 	if (tcgetattr(fd, &tios) < 0) {
 		syslogger(LOG_NOTICE, "failed to get attributes for TTY device %s: %s\n", ttypath, strerror(errno));
 		exit(EXIT_FAILURE);
@@ -343,25 +329,40 @@ int main(int argc, char *argv[])
 
 	if (speed) {
 		sprintf(buf, "C\rS%s\r", speed);
-		write(fd, buf, strlen(buf));
+		if (write(fd, buf, strlen(buf)) <= 0) {
+			perror("write");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	if (btr) {
 		sprintf(buf, "C\rs%s\r", btr);
-		write(fd, buf, strlen(buf));
+		if (write(fd, buf, strlen(buf)) <= 0) {
+			perror("write");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	if (send_read_status_flags) {
 		sprintf(buf, "F\r");
-		write(fd, buf, strlen(buf));
+		if (write(fd, buf, strlen(buf)) <= 0) {
+			perror("write");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	if (send_listen) {
 		sprintf(buf, "L\r");
-		write(fd, buf, strlen(buf));
+		if (write(fd, buf, strlen(buf)) <= 0) {
+			perror("write");
+			exit(EXIT_FAILURE);
+		}
 	} else if (send_open) {
 		sprintf(buf, "O\r");
-		write(fd, buf, strlen(buf));
+		if (write(fd, buf, strlen(buf)) <= 0) {
+			perror("write");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	/* set slcan like discipline on given tty */
@@ -371,23 +372,23 @@ int main(int argc, char *argv[])
 	}
 	
 	/* retrieve the name of the created CAN netdevice */
-	if (ioctl(fd, SIOCGIFNAME, buf) < 0) {
+	if (ioctl(fd, SIOCGIFNAME, ifr.ifr_name) < 0) {
 		perror("ioctl SIOCGIFNAME");
 		exit(EXIT_FAILURE);
 	}
 
-	syslogger(LOG_NOTICE, "attached TTY %s to netdevice %s\n", ttypath, buf);
+	syslogger(LOG_NOTICE, "attached TTY %s to netdevice %s\n", ttypath, ifr.ifr_name);
 	
 	/* try to rename the created netdevice */
 	if (name) {
-		struct ifreq ifr;
 		int s = socket(PF_INET, SOCK_DGRAM, 0);
 
 		if (s < 0)
 			perror("socket for interface rename");
 		else {
-			strncpy(ifr.ifr_name, buf, IFNAMSIZ);
-			strncpy(ifr.ifr_newname, name, IFNAMSIZ);
+			/* current slcan%d name is still in ifr.ifr_name */
+			memset (ifr.ifr_newname, 0, sizeof(ifr.ifr_newname));
+			strncpy (ifr.ifr_newname, name, sizeof(ifr.ifr_newname) - 1);
 
 			if (ioctl(s, SIOCSIFNAME, &ifr) < 0) {
 				syslogger(LOG_NOTICE, "netdevice %s rename to %s failed\n", buf, name);
@@ -399,6 +400,21 @@ int main(int argc, char *argv[])
 			close(s);
 		}	
 	}
+
+	/* Daemonize */
+	if (run_as_daemon) {
+		if (daemon(0, 0)) {
+			syslogger(LOG_ERR, "failed to daemonize");
+			exit(EXIT_FAILURE);
+		}
+	}
+	else {
+		/* Trap signals that we expect to receive */
+		signal(SIGINT, child_handler);
+		signal(SIGTERM, child_handler);
+	}
+
+	slcand_running = 1;
 
 	/* The Big Loop */
 	while (slcand_running)
@@ -414,7 +430,10 @@ int main(int argc, char *argv[])
 
 	if (send_close) {
 		sprintf(buf, "C\r");
-		write(fd, buf, strlen(buf));
+		if (write(fd, buf, strlen(buf)) <= 0) {
+			perror("write");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	/* Reset old rates */

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause) */
 /*
  * candump.c
  *
@@ -129,7 +130,7 @@ void print_usage(char *prg)
 	fprintf(stderr, "         -u <usecs>  (delay bridge forwarding by <usecs> microseconds)\n");
 	fprintf(stderr, "         -l          (log CAN-frames into file. Sets '-s %d' by default)\n", SILENT_ON);
 	fprintf(stderr, "         -L          (use log file format on stdout)\n");
-	fprintf(stderr, "         -n <count>  (terminate after receiption of <count> CAN frames)\n");
+	fprintf(stderr, "         -n <count>  (terminate after reception of <count> CAN frames)\n");
 	fprintf(stderr, "         -r <size>   (set socket receive buffer to <size>)\n");
 	fprintf(stderr, "         -D          (Don't exit if a \"detected\" can device goes down.\n");
 	fprintf(stderr, "         -d          (monitor dropped CAN frames)\n");
@@ -145,14 +146,14 @@ void print_usage(char *prg)
 	fprintf(stderr, " #<error_mask>       (set error frame filter, see include/linux/can/error.h)\n");
 	fprintf(stderr, " [j|J]               (join the given CAN filters - logical AND semantic)\n");
 	fprintf(stderr, "\nCAN IDs, masks and data content are given and expected in hexadecimal values.\n");
-	fprintf(stderr, "When can_id and can_mask are both 8 digits, they are assumed to be 29 bit EFF.\n");
+	fprintf(stderr, "When the can_id is 8 digits long the CAN_EFF_FLAG is set for 29 bit EFF format.\n");
 	fprintf(stderr, "Without any given filter all data frames are received ('0:0' default filter).\n");
 	fprintf(stderr, "\nUse interface name '%s' to receive from all CAN interfaces.\n", ANYDEV);
 	fprintf(stderr, "\nExamples:\n");
 	fprintf(stderr, "%s -c -c -ta can0,123:7FF,400:700,#000000FF can2,400~7F0 can3 can8\n", prg);
 	fprintf(stderr, "%s -l any,0~0,#FFFFFFFF    (log only error frames but no(!) data frames)\n", prg);
 	fprintf(stderr, "%s -l any,0:0,#FFFFFFFF    (log error frames and also all data frames)\n", prg);
-	fprintf(stderr, "%s vcan2,92345678:DFFFFFFF (match only for extended CAN ID 12345678)\n", prg);
+	fprintf(stderr, "%s vcan2,12345678:DFFFFFFF (match only for extended CAN ID 12345678)\n", prg);
 	fprintf(stderr, "%s vcan2,123:7FF (matches CAN ID 123 - including EFF and RTR frames)\n", prg);
 	fprintf(stderr, "%s vcan2,123:C00007FF (matches CAN ID 123 - only SFF and non-RTR frames)\n", prg);
 	fprintf(stderr, "\n");
@@ -324,6 +325,9 @@ int main(int argc, char **argv)
 
 				/* disable default receive filter on this write-only RAW socket */
 				setsockopt(bridge, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
+
+				/* try to switch the bridge socket into CAN FD mode */
+				setsockopt(bridge, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &canfd_on, sizeof(canfd_on));
 
 				if (opt == 'B') {
 					const int loopback = 0;
@@ -502,12 +506,16 @@ int main(int argc, char **argv)
 					   &rfilter[numfilter].can_id, 
 					   &rfilter[numfilter].can_mask) == 2) {
  					rfilter[numfilter].can_mask &= ~CAN_ERR_FLAG;
+					if (*(ptr+8) == ':')
+						rfilter[numfilter].can_id |= CAN_EFF_FLAG;
 					numfilter++;
 				} else if (sscanf(ptr, "%x~%x",
 						  &rfilter[numfilter].can_id, 
 						  &rfilter[numfilter].can_mask) == 2) {
  					rfilter[numfilter].can_id |= CAN_INV_FILTER;
  					rfilter[numfilter].can_mask &= ~CAN_ERR_FLAG;
+					if (*(ptr+8) == '~')
+						rfilter[numfilter].can_id |= CAN_EFF_FLAG;
 					numfilter++;
 				} else if (*ptr == 'j' || *ptr == 'J') {
 					join_filter = 1;
@@ -612,7 +620,7 @@ int main(int argc, char **argv)
 	if (log) {
 		time_t currtime;
 		struct tm now;
-		char fname[sizeof("candump-2006-11-20_202026.log")+1];
+		char fname[83]; /* suggested by -Wformat-overflow= */
 
 		if (time(&currtime) == (time_t)-1) {
 			perror("time");
@@ -630,9 +638,9 @@ int main(int argc, char **argv)
 			now.tm_sec);
 
 		if (silent != SILENT_ON)
-			printf("\nWarning: console output active while logging!");
+			fprintf(stderr, "Warning: Console output active while logging!\n");
 
-		fprintf(stderr, "\nEnabling Logfile '%s'\n\n", fname);
+		fprintf(stderr, "Enabling Logfile '%s'\n", fname);
 
 		logfile = fopen(fname, "w");
 		if (!logfile) {
@@ -765,7 +773,7 @@ int main(int argc, char **argv)
 						max_devname_len, devname[idx], buf);
 				}
 
-				if (logfrmt) {
+				if ((logfrmt) && (silent == SILENT_OFF)){
 					char buf[CL_CFSZ]; /* max length */
 
 					/* print CAN frame in log file style to stdout */
